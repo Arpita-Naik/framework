@@ -5,9 +5,6 @@ import shutil
 
 class SlurmRemover:
 
-    # -----------------------------
-    # Utility Runner (Safe Mode)
-    # -----------------------------
     def run(self, command, ignore_error=False):
         try:
             subprocess.run(command, check=not ignore_error)
@@ -15,17 +12,13 @@ class SlurmRemover:
             if not ignore_error:
                 raise
 
-    # -----------------------------
-    # Check Root
-    # -----------------------------
+    
     def check_root(self):
         if os.geteuid() != 0:
             print("Run as root (sudo).")
             exit(1)
 
-    # -----------------------------
-    # Detect Package Manager
-    # -----------------------------
+    
     def detect_package_manager(self):
         if shutil.which("apt"):
             return "apt"
@@ -34,9 +27,6 @@ class SlurmRemover:
         else:
             return None
 
-    # -----------------------------
-    # Stop & Disable Services
-    # -----------------------------
     def stop_services(self):
         print("Stopping services...")
 
@@ -51,9 +41,6 @@ class SlurmRemover:
             self.run(["systemctl", "stop", service], ignore_error=True)
             self.run(["systemctl", "disable", service], ignore_error=True)
 
-    # -----------------------------
-    # Remove Packages
-    # -----------------------------
     def remove_packages(self, pkg_manager):
         print("Removing Slurm and Munge packages...")
 
@@ -79,9 +66,6 @@ class SlurmRemover:
                 "slurm-slurmdbd"
             ], ignore_error=True)
 
-    # -----------------------------
-    # Remove Directories
-    # -----------------------------
     def remove_directories(self):
         print("Removing configuration directories...")
 
@@ -99,9 +83,6 @@ class SlurmRemover:
             if os.path.exists(path):
                 shutil.rmtree(path, ignore_errors=True)
 
-    # -----------------------------
-    # Remove Users
-    # -----------------------------
     def remove_users(self):
         print("Removing users...")
 
@@ -110,16 +91,10 @@ class SlurmRemover:
         for user in users:
             self.run(["userdel", user], ignore_error=True)
 
-    # -----------------------------
-    # Reload systemd
-    # -----------------------------
     def reload_systemd(self):
         print("Reloading systemd...")
         self.run(["systemctl", "daemon-reload"], ignore_error=True)
 
-    # -----------------------------
-    # Main Flow
-    # -----------------------------
     def remove(self):
         print("===== FULL HPC RESET START =====")
 
@@ -140,3 +115,7 @@ class SlurmRemover:
 
         print("===== FULL HPC RESET COMPLETE =====")
         print("You may reboot now.")
+
+if __name__ == "__main__":
+    remover = SlurmRemover()
+    remover.remove()

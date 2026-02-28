@@ -149,3 +149,7 @@ class OpenMPIInstaller:
 
         print("==== OpenMPI Installation Complete ====")
         print("Run: source ~/.bashrc")
+
+if __name__ == "__main__":
+    installer = OpenMPIInstaller()
+    installer.install()

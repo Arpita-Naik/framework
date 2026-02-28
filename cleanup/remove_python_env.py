@@ -72,3 +72,7 @@ class PythonRemover:
 
         print("===== Python completely removed =====")
         print("Run: source ~/.bashrc")
+
+if __name__ == "__main__":
+    remover = PythonRemover()
+    remover.remove()

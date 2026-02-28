@@ -71,3 +71,8 @@ class GCCRemover:
 
         print("===== GCC completely removed =====")
         print("Run: source ~/.bashrc")
+
+
+if __name__ == "__main__":
+    remover = GCCRemover()
+    remover.remove()

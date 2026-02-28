@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+
+import sys
+import subprocess
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def show_help():
+    print("""
+HPC Control Framework
+
+Install Modules:
+  hpcctl --module python
+  hpcctl --module openmpi
+  hpcctl --module slurm
+  hpcctl --module preprocess
+
+Cleanup:
+  hpcctl --cleanup python
+  hpcctl --cleanup openmpi
+  hpcctl --cleanup slurm
+  hpcctl --cleanup all
+
+Other:
+  hpcctl --setup
+  hpcctl --help
+""")
+
+def run_module(module_name, sudo=False):
+    if sudo:
+        subprocess.run(["sudo", "python3", "-m", module_name])
+    else:
+        subprocess.run(["python3", "-m", module_name])
+
+def main():
+    if len(sys.argv) == 1 or sys.argv[1] == "--help":
+        show_help()
+        return
+
+    if sys.argv[1] == "--setup":
+        run_module("master_setup.py", sudo=True)
+
+    elif sys.argv[1] == "--module":
+        if len(sys.argv) < 3:
+            print("Specify module name.")
+            return
+
+        module = sys.argv[2]
+
+        if module == "python":
+            run_module("modules.install_python_module")
+        elif module == "openmpi":
+            run_module("modules.install_openmpi_module")
+        elif module == "preprocess":
+            run_module("slurm.preprocess_slurm")
+        elif module == "slurm":
+            run_module("slurm.install_slurm", sudo=True)
+        else:
+            print("Unknown module.")
+
+    elif sys.argv[1] == "--cleanup":
+        if len(sys.argv) < 3:
+            print("Specify cleanup target.")
+            return
+
+        target = sys.argv[2]
+
+        if target == "python":
+            run_module("cleanup.remove_python_env")
+        elif target == "openmpi":
+            run_module("cleanup.remove_openmpi")
+        elif target == "slurm":
+            run_module("cleanup.remove_slurm", sudo=True)
+        elif target == "all":
+            run_module("cleanup.master_cleanup", sudo=True)
+        else:
+            print("Unknown cleanup target.")
+
+    else:
+        show_help()
+
+if __name__ == "__main__":
+    main()

@@ -3,7 +3,7 @@ import os
 import re
 import requests
 from pathlib import Path
-from utils.os_detector import OSDetector
+from system_check.detect_os import OSDetector
 
 
 class PythonInstaller:
@@ -194,3 +194,8 @@ class PythonInstaller:
 
         print("==== Python Installation Complete ====")
         print("Run: source ~/.bashrc")
+
+
+if __name__ == "__main__":
+    installer = PythonInstaller()
+    installer.install()

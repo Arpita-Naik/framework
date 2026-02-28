@@ -1,6 +1,6 @@
 import subprocess
 import os
-from utils.os_detector import OSDetector
+from system_check.detect_os import OSDetector
 
 
 class SlurmInstaller:
@@ -13,6 +13,7 @@ class SlurmInstaller:
     # -----------------------------
 
     def run(self, command):
+        print("Running:", " ".join(command))
         subprocess.run(command, check=True)
 
     # -----------------------------
@@ -90,20 +91,20 @@ class SlurmInstaller:
         tar_file = f"slurm-{self.VERSION}.tar.bz2"
         source_dir = f"slurm-{self.VERSION}"
 
-        # Download
-        self.run([
-            "sudo", "wget", "-q",
-            f"https://download.schedmd.com/slurm/{tar_file}"
-        ])
+        if not os.path.exists(tar_file):
+            self.run([
+                "sudo", "wget",
+                f"https://download.schedmd.com/slurm/{tar_file}"
+            ])
 
-        # Extract
-        self.run(["sudo", "tar", "-xjf", tar_file])
+        if not os.path.exists(source_dir):
+            self.run(["sudo", "tar", "-xjf", tar_file])
 
         os.chdir(os.path.join(self.WORKDIR, source_dir))
 
         print("==== Building Slurm ====")
 
-        self.run(["sudo", "./configure", "--sysconfdir=/etc/slurm"])
+        self.run(["sudo", "./configure", "--sysconfdir=/etc/slurm","--without-cgroup","--disable-cgroup"])
         self.run(["sudo", "make", f"-j{os.cpu_count()}"])
         self.run(["sudo", "make", "install"])
 
@@ -134,7 +135,8 @@ class SlurmInstaller:
             "/etc/slurm",
             "/var/spool/slurmctld",
             "/var/spool/slurmd",
-            "/var/log/slurm"
+            "/var/log/slurm",
+            "/run/slurm"
         ]
 
         for d in dirs:
@@ -143,6 +145,75 @@ class SlurmInstaller:
         self.run(["sudo", "chown", "-R", "slurm:slurm", "/var/spool/slurmctld"])
         self.run(["sudo", "chown", "-R", "slurm:slurm", "/var/spool/slurmd"])
         self.run(["sudo", "chown", "-R", "slurm:slurm", "/var/log/slurm"])
+        self.run(["sudo", "chown", "-R", "slurm:slurm", "/run/slurm"])
+
+    # -----------------------------
+    # Create slurm.conf
+    # -----------------------------
+
+    def create_slurm_conf(self):
+        print("==== Creating slurm.conf ====")
+
+        hostname = subprocess.check_output(["hostname"], text=True).strip()
+        cpu_count = os.cpu_count()
+
+        config = f"""
+ClusterName=cluster
+SlurmctldHost={hostname}
+
+SlurmUser=slurm
+StateSaveLocation=/var/spool/slurmctld
+SlurmdSpoolDir=/var/spool/slurmd
+
+AuthType=auth/munge
+ProctrackType=proctrack/linuxproc
+TaskPlugin=task/none
+JobAcctGatherType=jobacct_gather/none
+CgroupPlugin=disabled
+
+SlurmctldPidFile=/run/slurm/slurmctld.pid
+SlurmdPidFile=/run/slurm/slurmd.pid
+
+SlurmctldLogFile=/var/log/slurm/slurmctld.log
+SlurmdLogFile=/var/log/slurm/slurmd.log
+
+SelectType=select/cons_tres
+SchedulerType=sched/backfill
+
+NodeName={hostname} CPUs={cpu_count} State=UNKNOWN
+PartitionName=debug Nodes={hostname} Default=YES MaxTime=INFINITE State=UP
+"""
+
+        with open("/tmp/slurm.conf", "w") as f:
+            f.write(config)
+
+        self.run(["sudo", "mv", "/tmp/slurm.conf", "/etc/slurm/slurm.conf"])
+        self.run(["sudo", "chown", "slurm:slurm", "/etc/slurm/slurm.conf"])
+        self.run(["sudo", "chmod", "644", "/etc/slurm/slurm.conf"])
+
+    # -----------------------------
+    # Install systemd service files
+    # -----------------------------
+
+    def install_systemd_services(self):
+        print("==== Installing systemd service files ====")
+
+        source_dir = f"{self.WORKDIR}/slurm-{self.VERSION}"
+
+        self.run([
+            "sudo", "cp",
+            f"{source_dir}/etc/slurmctld.service",
+            "/etc/systemd/system/"
+        ])
+
+        self.run([
+            "sudo", "cp",
+            f"{source_dir}/etc/slurmd.service",
+            "/etc/systemd/system/"
+        ])
+
+        self.run(["sudo", "systemctl", "daemon-reload"])
+        self.run(["sudo", "systemctl", "daemon-reexec"])
 
     # -----------------------------
     # Enable Services
@@ -151,7 +222,6 @@ class SlurmInstaller:
     def enable_services(self):
         print("==== Enabling Slurm Services ====")
 
-        self.run(["sudo", "systemctl", "daemon-reload"])
         self.run(["sudo", "systemctl", "enable", "slurmctld"])
         self.run(["sudo", "systemctl", "enable", "slurmd"])
 
@@ -160,7 +230,7 @@ class SlurmInstaller:
         self.run(["sudo", "systemctl", "start", "slurmd"])
 
     # -----------------------------
-    # Verification Using sinfo
+    # Verify Using sinfo
     # -----------------------------
 
     def verify(self):
@@ -181,7 +251,7 @@ class SlurmInstaller:
             raise Exception("Slurm installation verification failed.")
 
     # -----------------------------
-    # Main Installer
+    # Main Install Flow
     # -----------------------------
 
     def install(self):
@@ -195,7 +265,14 @@ class SlurmInstaller:
         self.download_and_build()
         self.create_slurm_user()
         self.setup_directories()
+        self.create_slurm_conf()
+        self.install_systemd_services()
         self.enable_services()
         self.verify()
 
         print("==== Slurm Installation Complete ====")
+
+
+if __name__ == "__main__":
+    installer = SlurmInstaller()
+    installer.install()

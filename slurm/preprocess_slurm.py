@@ -89,3 +89,8 @@ class SlurmPreprocessor:
         print("Slurm installed but not active.")
         self.clean_broken_state()
         return "broken_cleaned"
+    
+if __name__ == "__main__":
+    preprocessor = SlurmPreprocessor()
+    status = preprocessor.check()
+    print(f"Detected status: {status}")

@@ -192,3 +192,7 @@ class GCCInstaller:
 
         print("==== GCC Installation Complete ====")
         print("Run: source ~/.bashrc")
+
+if __name__ == "__main__":
+    installer = GCCInstaller()
+    installer.install()
